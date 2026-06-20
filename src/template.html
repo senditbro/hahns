@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>H.A.H.N.S — setup</title>
+<style>
+  :root{--vw:#001e50;--ink:#1c1c1c;--muted:#5a6b8c;--line:#e3e7ee;--bg:#f4f6fa}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  .page{max-width:760px;margin:0 auto;padding:28px 20px 60px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  header svg{width:34px;height:34px;stroke:var(--vw);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  h1{font-size:23px;margin:0}
+  .tag{color:var(--muted);margin:2px 0 24px;font-size:14px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:16px 0}
+  .card h2{font-size:16px;margin:0 0 4px}
+  .card .n{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--vw);color:#fff;font-size:12px;font-weight:700;align-items:center;justify-content:center;margin-right:8px;vertical-align:2px}
+  .drag{display:inline-flex;align-items:center;gap:9px;background:var(--vw);color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:11px 18px;border-radius:10px;cursor:grab;margin:8px 0 4px;user-select:none}
+  .drag svg{width:19px;height:19px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  ol{margin:10px 0 0;padding-left:20px}
+  ol li{margin:6px 0}
+  .hint{font-size:13px;color:var(--muted)}
+  details{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+  summary{cursor:pointer;font-weight:600;font-size:14px}
+  .priv{background:#eef7f1;border:1px solid #c9e6d4;border-radius:10px;padding:12px 14px;font-size:13.5px;color:#0f5132}
+  .priv b{color:#0a3d24}
+  textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:10px;padding:11px;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;resize:vertical}
+  .btn{background:var(--vw);color:#fff;border:0;border-radius:9px;padding:10px 16px;font-weight:600;font-size:14px;cursor:pointer;margin-top:10px}
+  .btn:hover{background:#00307f}
+  #demo{position:relative;min-height:40px;margin-top:16px}
+  code{background:#eef1f6;border-radius:4px;padding:1px 5px;font-size:13px}
+  .warn{background:#fff8e6;border:1px solid #f3e2b3;border-radius:10px;padding:11px 14px;font-size:13.5px;color:#6b5300;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4l-6 6 2 2 6-6a4 4 0 0 0 5.4-5.4l-2.3 2.3-2-2 2.3-2.3z"/></svg>
+    <h1>H.A.H.N.S</h1>
+  </header>
+  <p class="hint" style="margin-top:-8px;font-weight:500">Hardware, Advisories, Highlights, &amp; Navigation Specialist</p>
+  <p class="tag">A no-install helper that reads the repair procedure you're already looking at and lists the torque specs, one-time-use parts, fluids, special tools, and warnings — and keeps nothing.</p>
+  <p class="hint" style="margin-top:-16px">Build <b>__BUILD__</b> — if the panel on ELSA shows a different build, re-drag the bookmark.</p>
+
+  <div class="priv">
+    <b>Your data stays put.</b> This tool runs entirely inside your own browser. It only reads text that ELSA has already shown you, it never saves a file, and it never sends anything over the internet. Close the panel and it's gone.
+  </div>
+
+  <div class="card">
+    <h2><span class="n">1</span>Add the wrench to your bookmarks bar</h2>
+    <p>Make sure your bookmarks bar is showing (<code>Ctrl</code>+<code>Shift</code>+<code>B</code> in Chrome/Edge), then drag this button up onto it:</p>
+    <a class="drag" href="__BOOKMARKLET__" onclick="return false;">
+      <svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4l-6 6 2 2 6-6a4 4 0 0 0 5.4-5.4l-2.3 2.3-2-2 2.3-2.3z"/></svg>
+      H.A.H.N.S
+    </a>
+    <p class="hint">Dragging it = saving a bookmark. Nothing installs and IT doesn't need to approve anything.</p>
+
+    <details>
+      <summary>Can't drag it? Add it by hand instead</summary>
+      <ol>
+        <li>Right-click the bookmarks bar &rarr; <b>Add page…</b></li>
+        <li>Name it <code>H.A.H.N.S</code></li>
+        <li>In the URL/Address box, paste the code from the file <code>bookmarklet.txt</code> (in this folder), then Save.</li>
+      </ol>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">2</span>Use it on a job</h2>
+    <ol>
+      <li>Log into <b>vw-now.com</b> and open a repair procedure in <b>ELSA</b> as usual.</li>
+      <li>Click the <b>H.A.H.N.S</b> bookmark.</li>
+      <li>The wrench panel appears with your specs sorted. Hit <b>Re-scan</b> after you navigate to a new page, or the <b>&#10005;</b> to close.</li>
+    </ol>
+    <div class="warn">
+      If the panel comes up empty on a real procedure, the spec text is probably inside an embedded frame from a different web address, which a bookmark can't reach. Use the paste box below as a fallback — copy the procedure text and drop it in.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">3</span>Try it now (no login needed)</h2>
+    <p class="hint">Paste any procedure text — or use the built-in sample — to see exactly how it sorts things. This is also the fallback when the bookmark can't read a page.</p>
+    <textarea id="src" spellcheck="false">Overview - Rear Brakes
+
+Note
+Use the Brake Charger/Bleeder Unit - VAS 5234 - to extract brake fluid.
+Install the Brake Pedal Actuator - V.A.G 1869/2 - before removing a brake caliper.
+
+1
+ADD
+Brake Shield
+Allocation - Electronic Parts Catalog (ETKA)
+Removing and Installing.
+
+1
+ADD
+Torx Bolt
+12 Nm
+
+1
+ADD
+Brake Rotor
+Replace on both sides of the axle if worn.
+
+1
+ADD
+Brake Caliper
+Do not remove the brake hose when changing the brake pads.
+
+1
+ADD
+Internal Multi-Point Bolt
+With Multipoint Socket - T10035 - , removing and installing
+Always replace after removing
+90 Nm + 90°
+
+1
+ADD
+Outer Brake Pad
+Thickness: 11 mm without backing plate
+Always replace on both sides of the axle.
+
+Brake fluid: VW DOT 4, total approx. 1.0 l.
+
+WARNING: Brake fluid is poisonous - do not allow it to contact the eyes or skin.</textarea>
+    <button class="btn" id="go">Sort the specs</button>
+    <div id="demo"><div class="demo-host" id="demoHost"></div></div>
+  </div>
+
+</div>
+
+<script>__HELPER__</script>
+<script>
+  (function () {
+    var host = document.getElementById("demoHost");
+    function buildFromPaste() {
+      var text = document.getElementById("src").value;
+      var r = window.VWJB.extract(text);
+      r.__title = text.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean)[0] || "";
+      return r;
+    }
+    function show(r) {
+      window.VWJB.renderInto(host, r, {
+        embed: true,
+        onRescan: function () { show(buildFromPaste()); },
+        onNewJob: function () { show(window.VWJB.extract("")); }
+      });
+    }
+    document.getElementById("go").addEventListener("click", function () { show(buildFromPaste()); });
+    show(buildFromPaste());
+  })();
+</script>
+</body>
+</html>
