@@ -9,6 +9,40 @@ Categories: **Added** (new), **Changed** (different behavior), **Fixed** (bugs),
 
 ---
 
+## v0.3.14-alpha — 2026-07-03
+
+### Added
+- **The page scan now uses your uploaded tool list to catch oddly-named tools.** Special
+  tools that don't look like the usual `T…`, `VAS…` or `VAG…` numbers — for example
+  `VW 771` or `VW 771/37` — used to be skipped by the scan. Now, if a tool is on the list
+  you loaded in ⚙ Settings, Hahns will spot it on the repair page even when its name is
+  unusual, show it under Special Tools, and give it a drawer location in **Find these
+  tools**. (Tools that are only numbers with no letters are still skipped on purpose, so a
+  bare number can't be confused with a torque value or part number.)
+
+### Fixed
+- **The 2018 Golf R engine oil now lists `VW 504 00 (0W-30)`.** Because that oil line is
+  squeezed in the PDF, the `(0W-30)` wrapped to the next line and was being dropped — it's
+  now kept with its spec. (Checked every year 2011–2026: this was the only entry affected.)
+- **Windows no longer close on their own.** If you opened Settings (or the Fluids/tools
+  window) right after scanning a vehicle, it would vanish a few seconds later when the
+  green vehicle bar auto-minimized. The bar still minimizes, but the window you're using
+  stays open.
+- **The "find on page" magnifier now opens collapsed sections first.** If a special tool
+  lived inside a dropdown/expandable section on the ELSA page, clicking the magnifier
+  appeared to do nothing (there was nothing on screen to jump to). It now opens that
+  section, then scrolls to and highlights the tool.
+
+### Changed
+- **Every pop-up window now has a standard ✕ in the top-right corner to close it**, instead
+  of a "Close"/"Cancel" button that was easy to miss.
+
+### Note
+- **Re-drag to get all of this** (hard-refresh the setup page, then drag the button up
+  again). Your loaded tool list and fluid tables are kept.
+
+---
+
 ## v0.3.13-alpha — 2026-07-02
 
 ### Changed
