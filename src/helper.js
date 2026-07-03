@@ -97,17 +97,78 @@
       else st.el.setAttribute("style", st.prevStyle);
     } catch (e) {}
   }
+  // is an element hidden (display:none / visibility:hidden)? — used to decide
+  // whether a collapsed section needs revealing before we can scroll to it.
+  function isElHidden(el) {
+    try {
+      var win = el.ownerDocument && el.ownerDocument.defaultView;
+      var cs = win && win.getComputedStyle(el);
+      if (cs && (cs.display === "none" || cs.visibility === "hidden")) return true;
+    } catch (e) {}
+    return false;
+  }
+  // A collapsed panel is usually opened by a control that points at it with
+  // aria-controls, or a header just before it — but ONLY click things explicitly
+  // marked aria-expanded="false" so we never fire a random (maybe destructive)
+  // button. Standard accordion markup; no-op otherwise.
+  function tryExpandPanel(panel) {
+    try {
+      var doc = panel.ownerDocument, cand = [];
+      if (panel.id) {
+        try { cand = cand.concat(Array.prototype.slice.call(doc.querySelectorAll('[aria-controls="' + panel.id.replace(/"/g, '\\"') + '"]'))); } catch (e0) {}
+      }
+      var prev = panel.previousElementSibling;
+      if (prev) {
+        if (prev.getAttribute && prev.getAttribute("aria-expanded") != null) cand.push(prev);
+        if (prev.querySelector) { var q = prev.querySelector("[aria-expanded]"); if (q) cand.push(q); }
+      }
+      for (var i = 0; i < cand.length; i++) {
+        var c = cand[i];
+        if (c && c.getAttribute && c.getAttribute("aria-expanded") === "false") {
+          try { c.click(); } catch (e1) {}
+          if (!isElHidden(panel)) return;
+        }
+      }
+    } catch (e) {}
+  }
+  // Reveal the element if it lives inside a collapsed/hidden section — ELSA lists
+  // special tools (and other data) in expandable dropdowns, and scroll/highlight
+  // can't land on a hidden node. Best-effort + defensive: opens <details>, drops
+  // the `hidden` attribute, and clicks a standard aria toggle, walking up through
+  // ancestors and out of any nested iframe. Never throws into the host page.
+  function revealForLocate(el) {
+    var node = el, hops = 0;
+    while (node && hops < 15) {
+      hops++;
+      var p = node.parentNode;
+      while (p && p.nodeType === 1) {
+        try {
+          if (p.tagName === "DETAILS" && !p.open) p.open = true;
+          if (p.hasAttribute && p.hasAttribute("hidden")) p.removeAttribute("hidden");
+          if (isElHidden(p)) tryExpandPanel(p);
+        } catch (e) {}
+        p = p.parentNode;
+      }
+      try { node = node.ownerDocument.defaultView.frameElement; } catch (e2) { node = null; }
+    }
+  }
   // scroll ELSA to the element (incl. its iframe, if nested) and pulse it yellow,
   // then fade back. Uses inline !important styles only — no network, fully
   // reversible, never touches ELSA's stylesheets.
   function highlightOnPage(el) {
     clearHi();
-    try { el.scrollIntoView({ behavior: "smooth", block: "center" }); }
-    catch (e) { try { el.scrollIntoView(); } catch (e2) {} }
-    try {
-      var fe = el.ownerDocument && el.ownerDocument.defaultView && el.ownerDocument.defaultView.frameElement;
-      if (fe && fe.scrollIntoView) fe.scrollIntoView({ behavior: "smooth", block: "center" });
-    } catch (e3) {}
+    try { revealForLocate(el); } catch (eRev) {}
+    var doScroll = function () {
+      try { el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      catch (e) { try { el.scrollIntoView(); } catch (e2) {} }
+      try {
+        var fe = el.ownerDocument && el.ownerDocument.defaultView && el.ownerDocument.defaultView.frameElement;
+        if (fe && fe.scrollIntoView) fe.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch (e3) {}
+    };
+    doScroll();
+    // a just-expanded panel often animates open — scroll once more after it settles
+    setTimeout(doScroll, 350);
     var st = { el: el, prevStyle: el.getAttribute("style"), timers: [] };
     hiState = st;
     function paint(c) {
@@ -416,6 +477,37 @@
     var st = loadShopTools();
     if (!st || !st.map) return null;
     return st.map[normTool(num)] || null;
+  }
+
+  // A matcher built from the uploaded shop list so the page scan ALSO catches
+  // tools whose format the generic TOOL_RE misses — e.g. "VW 771" / "VW 771/37".
+  // We deliberately do NOT add a generic "VW ###" rule to TOOL_RE: that would
+  // grab fluid specs like "VW 502 00". Matching only against tools that are
+  // actually on the shop's own list sidesteps that. Pure-number tools are skipped
+  // (they'd collide with torque values / part numbers); anything with a letter is
+  // fair game. Rebuilt only when the list changes (keyed on updated+count).
+  var _toolDict = null, _toolDictSig = "";
+  function reEsc(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+  var TOOL_SEP = "[\\s.\\u2010-\\u2015\\-/]*";   // spaces, dots, dashes, slashes — 0+
+  function toolDict() {
+    var st = loadShopTools();
+    if (!st || !st.map) { _toolDict = null; _toolDictSig = ""; return null; }
+    var sig = (st.updated || "") + "|" + (st.count || 0);
+    if (_toolDict && _toolDictSig === sig) return _toolDict;
+    var pats = [];
+    Object.keys(st.map).forEach(function (norm) {
+      if (norm.length < 3 || !/[A-Z]/.test(norm)) return;      // skip short / pure-number keys
+      var orig = (st.map[norm] && st.map[norm].n) || norm;
+      var parts = String(orig).toUpperCase().match(/[A-Z0-9]+/g);
+      if (!parts || !parts.length) return;
+      pats.push({ len: norm.length, src: parts.map(reEsc).join(TOOL_SEP) });
+    });
+    _toolDictSig = sig;
+    if (!pats.length) { _toolDict = null; return null; }
+    pats.sort(function (a, b) { return b.len - a.len; });       // longest first: "VW 771/37" beats "VW 771"
+    try { _toolDict = { re: new RegExp("\\b(?:" + pats.map(function (p) { return p.src; }).join("|") + ")\\b", "gi"), map: st.map }; }
+    catch (e) { _toolDict = null; }
+    return _toolDict;
   }
 
   // detect a "this isn't a normal tool description" note baked into the
@@ -1141,8 +1233,15 @@
       if (/^\s*Engine\s+Engine Oil Type/.test(ln)) { idxType = ln.indexOf("Engine Oil Type"); continue; }
       var col1 = ln.substring(0, idxType).trim();
       var rest = dropFootnote(ln.substring(idxType));
-      if (CAP_RE.test(rest)) { cur = { eng: col1, rest: rest }; rows.push(cur); }
-      else if (cur) { if (col1) cur.eng += " " + col1; cur.rest += " " + rest; }
+      // Everything before the capacity value is Oil-Type column text. Keeping a
+      // separate `type` accumulator holds a spec's viscosity next to its "VW ###"
+      // even when the cell wraps and the "(0W-30)" lands on a continuation line
+      // (2018 Golf R: line 1 ends "VW 508 00 (0W-20) VW 504 00", line 2 is
+      // "(0W-30) /") — otherwise the "(0W-30)" was appended after the capacity in
+      // `rest` and dropped by SPEC_RE.
+      var cm = rest.match(CAP_RE);
+      if (cm) { cur = { eng: col1, rest: rest, type: rest.slice(0, cm.index) }; rows.push(cur); }
+      else if (cur) { if (col1) cur.eng += " " + col1; cur.rest += " " + rest; cur.type += " " + rest; }
     }
     return rows.map(function (r) {
       var engines = codesIn(r.eng);
@@ -1153,7 +1252,7 @@
       return {
         engines: engines.map(function (s) { return s.toUpperCase(); }),
         desc: desc.replace(/\s+/g, " ").replace(/^\s*[—-]\s*/, "").replace(/[—-]\s*$/, "").trim(),
-        specs: (r.rest.match(SPEC_RE) || []).map(function (s) { return s.replace(/\s+/g, " ").trim(); }),
+        specs: ((r.type || r.rest).match(SPEC_RE) || []).map(function (s) { return s.replace(/\s+/g, " ").trim(); }),
         capacity: ((r.rest.match(CAP_RE) || [""])[0]).replace(/\s+/g, " ").trim()
       };
     });
@@ -1425,8 +1524,8 @@
       '<meta name="viewport" content="width=device-width, initial-scale=1">' +
       "<title>Fluids &amp; Capacities" + (veh.model ? " — " + esc(veh.model) : "") + "</title>" +
       "<style>" + FLUIDS_WIN_CSS + "</style></head><body>" +
-      '<div class="bar"><button id="hb_print" onclick="window.print()">Print</button>' +
-        '<button id="hb_close" class="sec" onclick="window.close()">Close</button></div>' +
+      '<button id="hb_close" class="xclose" onclick="window.close()" title="Close" aria-label="Close">&#10005;</button>' +
+      '<div class="bar"><button id="hb_print" onclick="window.print()">Print</button></div>' +
       "<h1>Fluids &amp; Capacities</h1>" +
       '<div class="meta">from the ' + esc(veh.year || "?") + " tables on this computer" + (yd && yd.file ? " (" + esc(yd.file) + ")" : "") + "</div>" +
       '<div class="veh"><div class="t">Vehicle</div><div class="grid">' + vehGrid + "</div></div>" +
@@ -1519,6 +1618,7 @@
     var ov = document.createElement("div");
     ov.className = "setc";
     ov.innerHTML = '<div class="setbox">' +
+      '<button class="xclose" title="Close" aria-label="Close">&#10005;</button>' +
       '<p class="settl">Load fluid capacity tables</p>' +
       '<p class="setsub">Check each year’s models below against your PDFs, then save. Converted on this computer — the PDFs themselves aren’t kept, and nothing is uploaded.</p>' +
       rows +
@@ -1530,6 +1630,7 @@
     var close = function () { try { ov.remove(); } catch (e) {} };
     ov.addEventListener("click", function (e) { if (e.target === ov) close(); });
     ov.querySelector(".cancel").addEventListener("click", close);
+    ov.querySelector(".xclose").addEventListener("click", close);
     var sv = ov.querySelector(".save");
     if (sv) sv.addEventListener("click", function () {
       var st = loadFluids() || { years: {} };
@@ -1697,12 +1798,24 @@
           // each with a parsed name when we can find one. A bare "special tool"
           // mention with no number is kept as a text-only entry.
           var entries = toolEntries(line);
+          // ALSO catch any tool from the uploaded shop list that TOOL_RE's fixed
+          // formats miss (e.g. "VW 771"). The list is the shop's own dictionary.
+          var dict = toolDict();
+          if (dict) {
+            dict.re.lastIndex = 0;
+            var dm;
+            while ((dm = dict.re.exec(line))) {
+              var canon = (dict.map[normTool(dm[0])] || {}).n || dm[0].replace(/\s+/g, " ").trim();
+              entries.push({ num: canon, desc: toolDescBefore(line.slice(0, dm.index)) || toolDescAfter(line.slice(dm.index + dm[0].length)) });
+            }
+          }
           if (entries.length) {
             entries.forEach(function (e) {
-              var tk = e.num.toLowerCase();
+              var tk = normTool(e.num);
+              if (!tk) return;
               if (seen.tools[tk]) {
                 // already have it — fill in a description if this sighting has one
-                if (e.desc) results.tools.forEach(function (it) { if (it.num && it.num.toLowerCase() === tk && !it.desc) { it.desc = e.desc; it.text = it.num + " — " + e.desc; } });
+                if (e.desc) results.tools.forEach(function (it) { if (it.num && normTool(it.num) === tk && !it.desc) { it.desc = e.desc; it.text = it.num + " — " + e.desc; } });
                 return;
               }
               seen.tools[tk] = 1;
@@ -2025,7 +2138,7 @@
 
   // dedup key for a tool entry — by number across the whole job (so a tool cited
   // on several pages is listed once), or by text for a number-less "special tool"
-  function toolKey(it) { return it.num ? "num::" + it.num.toLowerCase() : "txt::" + (it.text || "").toLowerCase(); }
+  function toolKey(it) { return it.num ? "num::" + normTool(it.num) : "txt::" + (it.text || "").toLowerCase(); }
 
   // fold a freshly scanned page (src) into the running job list (dst)
   function mergeInto(dst, src) {
@@ -2417,8 +2530,10 @@
     ".toast.on{opacity:1}" +
     // ⚙ settings + tool-list mapper overlays
     ".setc{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,8,30,.28);padding:14px}" +
-    ".setbox{background:#fff;border:1px solid #d4d4d4;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.3);padding:16px;width:440px;max-width:92vw;max-height:88vh;overflow:auto;text-align:left}" +
-    ".settl{font-size:14px;font-weight:700;color:#001e50;margin:0 0 4px}" +
+    ".setbox{position:relative;background:#fff;border:1px solid #d4d4d4;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.3);padding:16px;width:440px;max-width:92vw;max-height:88vh;overflow:auto;text-align:left}" +
+    ".setbox .xclose{position:absolute;top:9px;right:9px;width:30px;height:30px;padding:0;border-radius:8px;border:1px solid #cfd6e4;background:#fff;color:#3a4a63;font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}" +
+    ".setbox .xclose:hover{background:#f3f6fb;color:#001e50}" +
+    ".settl{font-size:14px;font-weight:700;color:#001e50;margin:0 0 4px;padding-right:26px}" +
     ".setsub{font-size:12px;color:#3a4a63;line-height:1.45;margin:0 0 12px}" +
     ".setsub b{color:#001e50}" +
     ".setstat{background:#edf7ee;border:1px solid #cce6cf;border-radius:8px;padding:9px 11px;font-size:12.5px;color:#1e6b34;line-height:1.4;margin-bottom:12px}" +
@@ -2584,8 +2699,8 @@
       '<meta name="viewport" content="width=device-width, initial-scale=1">' +
       "<title>Find these tools" + (r.__title ? " — " + esc(r.__title) : "") + "</title>" +
       "<style>" + TOOLS_WIN_CSS + "</style></head><body>" +
-      '<div class="bar"><button id="hb_print" onclick="window.print()">Print</button>' +
-        '<button id="hb_close" class="sec" onclick="window.close()">Close</button></div>' +
+      '<button id="hb_close" class="xclose" onclick="window.close()" title="Close" aria-label="Close">&#10005;</button>' +
+      '<div class="bar"><button id="hb_print" onclick="window.print()">Print</button></div>' +
       "<h1>Find these tools</h1>" +
       '<div class="meta">' + (r.__title ? esc(r.__title) + " · " : "") + (veh ? esc(veh) + " · " : "") + "printed " + esc(when) + "</div>";
     if (!items.length && !missing.length) {
@@ -2826,6 +2941,8 @@
     ".bar button:hover{background:#28a344}" +
     ".bar button.sec{background:#fff;border:1px solid #cfd6e4;color:#001e50;font-weight:600}" +
     ".bar button.sec:hover{background:#f3f6fb}" +
+    ".xclose{position:fixed;top:10px;right:12px;width:34px;height:34px;padding:0;border-radius:8px;border:1px solid #cfd6e4;background:#fff;color:#333;font-size:19px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:20}" +
+    ".xclose:hover{background:#f3f6fb;color:#000}" +
     "h1{font-size:21px;margin:0 0 3px;color:#1b232b}" +
     ".meta{color:#555;font-size:12px;margin-bottom:14px;border-bottom:2px solid #2fb84d;padding-bottom:10px}" +
     // tick-off list: [box] Tool#  ........  Location
@@ -2846,7 +2963,7 @@
     ".callout.order{background:#fdecec;border:1px solid #efbcbc;color:#a32d2d}" +
     ".empty{color:#888;font-style:italic}" +
     ".foot{margin-top:20px;color:#999;font-size:11px;border-top:1px solid #eee;padding-top:8px}" +
-    "@media print{.bar{display:none}body{padding:0}.meta{border-bottom-color:#999}.row{cursor:default;page-break-inside:avoid}}";
+    "@media print{.bar{display:none}.xclose{display:none}body{padding:0}.meta{border-bottom-color:#999}.row{cursor:default;page-break-inside:avoid}}";
 
   // styles for the standalone Fluids & Capacities window (same bones as the
   // tools window; the four system cards keep the old lookup page's colours)
@@ -2858,6 +2975,8 @@
     ".bar button:hover{background:#28a344}" +
     ".bar button.sec{background:#fff;border:1px solid #cfd6e4;color:#001e50;font-weight:600}" +
     ".bar button.sec:hover{background:#f3f6fb}" +
+    ".xclose{position:fixed;top:10px;right:12px;width:34px;height:34px;padding:0;border-radius:8px;border:1px solid #cfd6e4;background:#fff;color:#333;font-size:19px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:20}" +
+    ".xclose:hover{background:#f3f6fb;color:#000}" +
     "h1{font-size:21px;margin:0 0 3px;color:#1b232b}" +
     ".meta{color:#555;font-size:12px;margin-bottom:14px;border-bottom:2px solid #2fb84d;padding-bottom:10px}" +
     ".veh{background:#fff;border:1px solid #e3e3e3;border-radius:12px;padding:12px 14px;margin:14px 0}" +
@@ -2886,7 +3005,7 @@
     ".none{font-size:13px;color:#9a9a9a;font-style:italic;padding:8px 0}" +
     ".err{background:#fff5f5;border:1px solid #e6b0b0;color:#7a1f1f;border-radius:10px;padding:13px 14px;font-size:13.5px;margin:16px 0;line-height:1.45}" +
     ".foot{font-size:11px;color:#5a6b8c;text-align:center;margin-top:18px;line-height:1.5}" +
-    "@media print{.bar{display:none}body{padding:0;background:#fff}.card{page-break-inside:avoid}}";
+    "@media print{.bar{display:none}.xclose{display:none}body{padding:0;background:#fff}.card{page-break-inside:avoid}}";
 
   // a clean, print-only document of the collected job
   function buildPrintHTML(r) {
@@ -3135,11 +3254,11 @@
           (fl.updated ? '<div class="setmeta">updated ' + esc(fl.updated) + "</div>" : "") + "</div>"
       : '<div class="setstat none">No fluid tables loaded yet. Load the yearly “VW Fluid Capacity Tables” PDFs (you can pick several at once) to enable the Fluids &amp; Capacities lookup.</div>';
     ov.innerHTML = '<div class="setbox">' +
+      '<button class="xclose" title="Close" aria-label="Close">&#10005;</button>' +
       '<p class="settl">Shop special-tool list</p>' +
       '<p class="setsub">Upload your shop’s tool list (a CSV or Excel <b>.xlsx</b> file). Hahns shows each special tool’s drawer location and flags tools that aren’t on the list.</p>' +
       status +
       '<div class="setbtns">' +
-        '<button class="cancel">Close</button>' +
         (st ? '<button class="danger remove">Remove list</button>' : "") +
         '<button class="primary upload">' + (st ? "Replace list" : "Upload list") + "</button>" +
       "</div>" +
@@ -3156,7 +3275,7 @@
     root.appendChild(ov);
     var close = function () { try { ov.remove(); } catch (e) {} };
     ov.addEventListener("click", function (e) { if (e.target === ov) close(); });
-    ov.querySelector(".cancel").addEventListener("click", close);
+    ov.querySelector(".xclose").addEventListener("click", close);
     var up = ov.querySelector(".upload");
     if (up) up.addEventListener("click", function () { close(); pickToolFile(host, r, options, root); });
     var rm = ov.querySelector(".remove");
@@ -3238,6 +3357,7 @@
     var ov = document.createElement("div");
     ov.className = "setc";
     ov.innerHTML = '<div class="setbox">' +
+      '<button class="xclose" title="Close" aria-label="Close">&#10005;</button>' +
       '<p class="settl">Set up your tool list</p>' +
       '<p class="setsub">Pick which column is which. <b>Description</b> is only read to flag tools marked “missing” or “check part number” — it’s never shown on its own.</p>' +
       '<table class="maptbl"><tr>' + head + "</tr>" + body + "</table>" +
@@ -3269,6 +3389,7 @@
     var close = function () { try { ov.remove(); } catch (e) {} };
     ov.addEventListener("click", function (e) { if (e.target === ov) close(); });
     ov.querySelector(".cancel").addEventListener("click", close);
+    ov.querySelector(".xclose").addEventListener("click", close);
     ov.querySelector(".save").addEventListener("click", function () {
       var cols = { num: -1, desc: -1, drawer: -1 };
       selects.forEach(function (sel) { if (sel.value && sel.value !== "ignore") cols[sel.value] = +sel.getAttribute("data-col"); });
@@ -3302,7 +3423,14 @@
     // snap the list back to the top
     var prevBody = root.querySelector(".body");
     var prevScroll = prevBody ? prevBody.scrollTop : 0;
+    // Keep any open modal (Settings, tool mapper, fluids confirm, exit confirm)
+    // ALIVE across this rebuild. A background re-render — e.g. the vehicle-bar
+    // auto-collapse timer firing 3 s after a scan — otherwise wipes root.innerHTML
+    // and would close a pop-up the tech is in the middle of using. These nodes keep
+    // their own event listeners, so re-appending the same elements is enough.
+    var keepModals = Array.prototype.slice.call(root.querySelectorAll(".setc, .exitc"));
     root.innerHTML = "<style>" + CSS + "</style>" + buildHTML(r, options.embed);
+    keepModals.forEach(function (m) { try { root.appendChild(m); } catch (eKM) {} });
     vehNotice = "";   // a blocked-scan note shows once, then clears on next render
     var newBody = root.querySelector(".body");
     if (newBody) newBody.scrollTop = prevScroll;

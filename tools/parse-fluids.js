@@ -123,8 +123,12 @@ function parseOil(lines, hdrIdx) {
     if (/^\s*Engine\s+Engine Oil Type/.test(ln)) { idxType = ln.indexOf("Engine Oil Type"); continue; }  // repeated header (page break)
     var col1 = ln.substring(0, idxType).trim();
     var rest = dropFootnote(ln.substring(idxType));
-    if (CAP_RE.test(rest)) { cur = { eng: col1, rest: rest }; rows.push(cur); }   // a capacity = a new engine row
-    else if (cur) { if (col1) cur.eng += " " + col1; cur.rest += " " + rest; }    // spec / engine-wrap continuation
+    // `type` = only the text before the capacity value, so a wrapped viscosity
+    // ("(0W-30)" on a continuation line, e.g. 2018 Golf R) stays attached to its
+    // "VW 504 00" instead of being appended after the capacity and lost by SPEC_RE.
+    var cm = rest.match(CAP_RE);
+    if (cm) { cur = { eng: col1, rest: rest, type: rest.slice(0, cm.index) }; rows.push(cur); }   // a capacity = a new engine row
+    else if (cur) { if (col1) cur.eng += " " + col1; cur.rest += " " + rest; cur.type += " " + rest; }    // spec / engine-wrap continuation
   }
   return rows.map(function (r) {
     var engines = codesIn(r.eng);
@@ -137,7 +141,7 @@ function parseOil(lines, hdrIdx) {
     return {
       engines: engines.map(function (s) { return s.toUpperCase(); }),
       desc: desc.replace(/\s+/g, " ").replace(/^\s*[—-]\s*/, "").replace(/[—-]\s*$/, "").trim(),
-      specs: (r.rest.match(SPEC_RE) || []).map(function (s) { return s.replace(/\s+/g, " ").trim(); }),
+      specs: ((r.type || r.rest).match(SPEC_RE) || []).map(function (s) { return s.replace(/\s+/g, " ").trim(); }),
       capacity: ((r.rest.match(CAP_RE) || [""])[0]).replace(/\s+/g, " ").trim()
     };
   });
