@@ -37,11 +37,13 @@ A/C tolerance saga — that was a `+/-` reassembly; this is a plain `N – M uni
 - **Browser (shipped bundle, real Chrome):** `window.VWJB` intact; `parseFluidModels` returns the
   0MJ range value `0.88 - 0.93 L (0.93-0.98 qt)`; no console errors.
 
-### Next
-- **Deploy:** PR → `main` (branch-protected, merge `--admin`; `git pull --rebase` first); confirm live
-  `version.json` = `v0.3.15.4-alpha`. **Re-drag needed.** On first launch after re-drag, saved 2025/26
-  PDFs re-parse silently and 0MJ reads the full range. Owner bay-verify the ID.Buzz drivetrain.
-- Couldn't run the real 2025/2026 PDFs end-to-end (not in repo) — same as prior A/C fixes; owner confirms live.
+### Deploy — DONE + CONFIRMED LIVE (owner, 2026-07-04)
+- PR #76 → `main` (admin squash-merge). GitHub Pages had a ~30 min incident today (deploys failed with
+  transient "Deployment failed, try again later." then jammed in a queue — normal is ~26 s); an empty
+  re-trigger commit (`e6ccae8`) finally published. Live `version.json` = `v0.3.15.4-alpha` confirmed.
+- **Owner bay-verified: ID.Buzz "Single Speed 0MJ" now shows `0.88 - 0.93 L` correctly.** Saved PDFs
+  auto-reparsed on the re-drag via the `MODERN_PARSER_VER` 1.3.3→1.3.4 bump — no re-upload. Issue #75 closed.
+- Couldn't run the real 2025/2026 PDFs end-to-end in-repo (same as prior A/C fixes); owner's live check was the gate.
 
 ---
 
