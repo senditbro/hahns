@@ -29,7 +29,17 @@ metric value reassembles. **`MODERN_PARSER_VER` 1.3.2 → 1.3.3** → saved PDFs
 - Design decision: strip is **A/C-only** (`parseCAC`), so oil/coolant `(… qt)` imperial is untouched.
 
 ### Deploy
-- PR → `main` (admin merge); confirm live `version.json` = `v0.3.15.3-alpha`. **Re-drag needed.**
+- PR #74 → `main` (admin merge); live `version.json` = `v0.3.15.3-alpha` confirmed. **Re-drag needed.**
+
+### CONFIRMED LIVE + session close (owner, 2026-07-04)
+- Owner: **2018 e-Golf is perfect** — A/C grams-only correct AND the engine-oil **part numbers** pick
+  up correctly. The A/C-format saga (v0.3.15.1→.3) is fully closed across all archived years.
+- **Deferred to tomorrow → [issue #75](https://github.com/FlatRateLabs/hahns/issues/75):** drivetrain
+  **range** capacities mis-split. Repro: 2025/2026 **ID.Buzz "Single Speed 0MJ"** capacity is a range
+  `0.88 – 0.93 L`; the low end (`0.88`) is stranded in the label (grey) instead of the bold value.
+  Different class from the A/C tolerance bug — `VAL_RE`/`parseCAC` don't capture a `N – M unit` range.
+  Gold data in `tools/fluids-review/gold-2025.json` + `gold-2026.json`; fix + bump `MODERN_PARSER_VER`
+  1.3.3→1.3.4, verify vs gold (sweep all years' drivetrain, likely also fixes the old DSG range nit).
 
 ---
 
