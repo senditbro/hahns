@@ -52,6 +52,14 @@ the spaced form to ASCII `+/-` before parsing:
 ### Deploy
 - PR → `main` (admin merge); confirm live `version.json` = `v0.3.15.2-alpha` (DONE). **Re-drag needed.**
 
+### CONFIRMED LIVE (owner, 2026-07-04)
+- Owner re-dragged and the **2018 Golf R A/C now reads correctly** — and **without re-loading the
+  PDF**. So the auto-reparse fired on its own: the `MODERN_PARSER_VER` bump was detected, the saved
+  2018 PDF Blob was re-read in the background, and the corrected values replaced the old ones with
+  **zero tech action beyond the re-drag**. First real-world proof the whole v0.3.15 IndexedDB /
+  keep-the-PDF / auto-reparse pipeline works as designed. (Owner's 2018 record therefore had a
+  saved Blob — they'd re-uploaded it on v0.3.15 earlier, so it wasn't a no-blob migrated year.)
+
 ---
 
 ## 2026-07-04 — v0.3.15.1-alpha: A/C split-tolerance fix (first live use of auto re-parse)
