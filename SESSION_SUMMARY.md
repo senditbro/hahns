@@ -26,12 +26,31 @@ the spaced form to ASCII `+/-` before parsing:
   `Initial Fill / Refill` label; contiguous `+/-`, real Unicode `±` (2019 `650 ± 25 g`), and plain
   oil all **unchanged**. Extracted the exact in-file regex and confirmed the Unicode dash class is
   valid + matches. `node --check` clean; built `v0.3.15.2-alpha`.
-- **Still not run against the real 2018 PDF** (not in repo) — but the fix is derived from the exact
-  rendered label text. **Owner: re-load the 2018 PDF via ⚙ Settings** to force a fresh parse (a
-  pre-v0.3.15 loaded year has no saved PDF blob, so it can't auto-reparse until re-uploaded once).
+- **Owner: re-load the 2018 PDF via ⚙ Settings** to force a fresh parse (a pre-v0.3.15 loaded year
+  has no saved PDF blob, so it can't auto-reparse until re-uploaded once).
+
+### Gold-data verification (owner said "it worked before the 0W-30 fix")
+- Diffed v0.3.13→v0.3.14: the oil fix is **isolated to `parseOil`** — it never touches `parseCAC`,
+  `VAL_RE`, the normalization, or section-splitting, so it can't have caused the A/C bug.
+- **Ground truth from `tools/fluids-review/gold-2018.json`** (pre-v0.3.13 hand-reviewed data): it
+  has the **identical mis-split** — `label:"Initial 500 + / - Fill / Refill"`, `value:"15 g"`. So
+  the A/C was **always** mis-parsed (poppler AND the in-app reader); the old hosted page rendered
+  label+value **inline** (read fine) while the v0.3.13 window **bolds the value**, exposing it. Not
+  a 0W-30 regression — correlation (owner scrutinized the 2018 Golf R during that testing).
+- **Ran the v0.3.15.2 pipeline over ALL gold A/C fills (500 across 16 years):** 44 mis-split cells
+  reassemble correctly, incl. the **entire 2018 Golf R** (R134a `500 +/- 15 g`, R1234yf
+  `460 +/- 15 g`, compressor `75/110/120 +/- 10 cc`) + 2018 Golf/GTI, Passat, Atlas, Tiguan,
+  Sportwagen. **No regressions** (contiguous `+/-`, real `±`, plain oils untouched).
+
+### Known remaining edge (follow-up, NOT owner's vehicle)
+- **e-Golf (2015–2018)** A/C cells embed an imperial conversion in parens —
+  `Initial 500 + / - (17.6 + / - 0.5 Fill / Refill oz.) 15 g` — which the current reassembly regex
+  doesn't fully catch (the `(` breaks the label-word group), so the metric value still lands as the
+  orphan. Electric-only, rare. Fix later by stripping the imperial `(… oz.)` parenthetical before
+  reassembly (verify against gold 2015–2018 e-Golf).
 
 ### Deploy
-- PR → `main` (admin merge); confirm live `version.json` = `v0.3.15.2-alpha`. **Re-drag needed.**
+- PR → `main` (admin merge); confirm live `version.json` = `v0.3.15.2-alpha` (DONE). **Re-drag needed.**
 
 ---
 
