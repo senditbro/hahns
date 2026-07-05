@@ -5,6 +5,34 @@ permanent project reference.
 
 ---
 
+## 2026-07-05 — session wrap: patches v0.3.16.1 / v0.3.16.2 / v0.3.17.1 (all LIVE)
+
+Follow-up patches after the entries below. All merged to `main` (admin squash), live-confirmed, tree clean.
+
+- **v0.3.16.1-alpha — added special tool `3259`** to `BUILTIN_TOOLS` (owner found it on a test page; not on
+  the supplied master list). Bare integer → callout-only, caught as `-3259-`.
+- **v0.3.16.2-alpha — spaced-group tool numbers (issue #78, CLOSED).** `TOOL_RE` stopped at the first space,
+  reading only `VAS 294` of `VAS 294 025`. VAS/VAG branches now allow up to two extra `(?:\s\d{2,4})` groups;
+  verified `VAS 294 025` / `VAS 611 007` captured whole, `VAS 5051 5 Nm` → just `VAS 5051`, ranges/part
+  numbers still excluded.
+- **v0.3.17.1-alpha — magnifier fix + issue #47 RESOLVED (owner-verified).** v0.3.17 shipped with a bad
+  regression: clicking the magnifier fired ELSA's **Print** repeatedly. The owner's diagnostic dump pinpointed
+  it — `looksExpander` matched `button.e2g-print-section-wrapper` ("section" was in the word-list) and
+  `fireClick` double-fired (event sequence + `.click()`). Fixes: **hard `NO_CLICK` guard** (never click
+  print/save/close/… — class/id/title/aria/short-text), **single native `.click()`** (no double-fire),
+  tightened `EXP_WORD`, capped to 3 clicks with ELSA's `green_wz-liste_header` prioritized, **async-open poll**
+  (ELSA/Angular expands a beat after the click → jump to the tool once visible; else land on the header), and a
+  **full ancestor-chain diagnostic**. Verified on a faithful ELSA repro (print clicked 0× whether the section
+  opens or not; header clicked once). **Owner bay-confirmed: the special-tool dropdown now opens and the
+  magnifier lands on the tool. Issue #47 closed.** The v0.3.14 magnifier "bay-test" follow-up is also resolved.
+
+**Session arc (2026-07-04 → 07-05):** v0.3.15.4 (#75 range fix) → v0.3.16 (tool list → IndexedDB + `hahns_db`
+rename) → built-in ~1,000-tool scan list + tool descriptions → v0.3.16.1 (3259) → v0.3.16.2 (#78) →
+v0.3.17 → v0.3.17.1 (#47). **Recurring note:** GitHub Pages had intermittent deploy failures all session
+(transient "Deployment failed, try again later."); a re-run/re-trigger cleared each — not a repo problem.
+
+---
+
 ## 2026-07-05 — v0.3.17-alpha: magnifier reveals collapsed tool dropdowns + diagnostics (issue #47, branch `0.3.17`)
 
 **Issue #47:** the locate-on-page magnifier can't reach a special tool when it sits inside a collapsed
