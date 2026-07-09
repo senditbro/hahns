@@ -21,21 +21,41 @@
 
   if (!window.opener) { say("Opened directly — nothing to do."); setTimeout(done, 1200); return; }
 
+  // the version the loader already has (empty on first install)
+  var have = "";
+  try { have = new URLSearchParams(location.search).get("v") || ""; } catch (e) { }
   var cb = "?cb=" + Date.now();
-  Promise.all([
-    fetch("./app.js" + cb).then(function (r) { if(!r.ok) throw new Error("app.js "+r.status); return r.text(); }),
-    fetch("./version.json" + cb).then(function (r) { return r.ok ? r.json() : {version:""}; }).catch(function(){ return {version:""}; })
-  ]).then(function (a) {
-    var code = a[0], ver = (a[1] && a[1].version) || "";
-    if (!code || code.length < 100) throw new Error("empty app.js");
-    // targetOrigin '*' is fine: the only opener is the ELSA page that launched us,
-    // and the loader validates OUR origin before trusting this message.
-    window.opener.postMessage({ source: "hahns-updater", version: ver, code: code }, "*");
-    say("Up to date ✓");
-    setTimeout(done, 400);
-  }).catch(function (e) {
-    say("Couldn't update (" + String(e) + ") — using the installed copy.");
-    setTimeout(done, 1800);
-  });
+
+  // targetOrigin '*' is fine: the only opener is the ELSA page that launched us,
+  // and the loader validates OUR origin before trusting this message.
+  function post(msg){ try { window.opener.postMessage(msg, "*"); } catch (e) { } }
+
+  // 1) always fetch the tiny version file first (a few hundred bytes)
+  fetch("./version.json" + cb)
+    .then(function (r) { return r.ok ? r.json() : { version: "" }; })
+    .catch(function () { return { version: "" }; })
+    .then(function (vj) {
+      var ver = (vj && vj.version) || "";
+      // 2) already current -> tell the loader, skip the 267 KB app download
+      if (have && ver && have === ver) {
+        post({ source: "hahns-updater", upToDate: true, version: ver });
+        say("Up to date ✓");
+        setTimeout(done, 400);
+        return;
+      }
+      // 3) new (or first install) -> now fetch the full app and hand it over
+      return fetch("./app.js" + cb)
+        .then(function (r) { if (!r.ok) throw new Error("app.js " + r.status); return r.text(); })
+        .then(function (code) {
+          if (!code || code.length < 100) throw new Error("empty app.js");
+          post({ source: "hahns-updater", version: ver, code: code });
+          say(have ? "Updated ✓" : "Installed ✓");
+          setTimeout(done, 400);
+        });
+    })
+    .catch(function (e) {
+      say("Couldn't update (" + String(e) + ") — using the installed copy.");
+      setTimeout(done, 1800);
+    });
 })();
 </script>

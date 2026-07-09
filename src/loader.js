@@ -31,8 +31,9 @@
     } catch (e) { /* ignore */ }
   }
 
-  var code = null;
+  var code = null, ver = "";
   try { code = localStorage.getItem(LS_CODE); } catch (e) { }
+  try { ver = localStorage.getItem(LS_VER) || ""; } catch (e) { }
 
   // 1) run the cached app right now (instant, works with no network)
   if (code) inject(code);
@@ -47,7 +48,12 @@
     window.addEventListener("message", function (e) {
       if (e.origin !== ORIGIN) return;                       // only trust our Pages origin
       var d = e.data;
-      if (!d || d.source !== "hahns-updater" || typeof d.code !== "string") return;
+      if (!d || d.source !== "hahns-updater") return;
+      if (d.upToDate) {                                      // already current: no app downloaded
+        try { localStorage.setItem(LS_TS, String(Date.now())); } catch (_) { }
+        return;
+      }
+      if (typeof d.code !== "string") return;
       try {
         localStorage.setItem(LS_CODE, d.code);
         localStorage.setItem(LS_VER, d.version || "");
@@ -57,7 +63,9 @@
       // otherwise the cached app is already running; the new code is used on the next click
     }, false);
 
-    var w = window.open(BASE + "/update.html?cb=" + Date.now(),
+    // pass the version we already have so the window can skip the big download when current
+    var w = window.open(
+      BASE + "/update.html?v=" + encodeURIComponent(ver) + "&cb=" + Date.now(),
       "hahns_upd", "popup=1,width=380,height=200");
     if (!w && !code) {
       alert("Hahns: allow pop-ups for this site once so it can install, then click the bookmark again.");
