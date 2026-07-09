@@ -1,0 +1,41 @@
+<!-- src/update.html — the Hahns update window (build.js copies it to docs/update.html).
+     Opened as a popup by the loader bookmarklet. It runs on GitHub Pages (its own
+     origin, no restrictive CSP), so it CAN fetch app.js; it hands the code back to
+     the ELSA page via postMessage, then closes itself.
+     Fetches only Hahns's own files — never touches ELSA/manual content. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Updating H.A.H.N.S…</title>
+<style>
+  body{font:14px/1.5 system-ui,-apple-system,sans-serif;margin:0;padding:16px;
+       background:#111;color:#ddd;text-align:center}
+  .sp{margin-top:8px;color:#2fb84d;font-weight:800}
+</style>
+<div>Checking for the latest H.A.H.N.S…</div>
+<div class="sp" id="s">one moment</div>
+<script>
+(function () {
+  var s = document.getElementById("s");
+  function say(t){ try{ s.textContent = t; }catch(e){} }
+  function done(){ try{ window.close(); }catch(e){} }
+
+  if (!window.opener) { say("Opened directly — nothing to do."); setTimeout(done, 1200); return; }
+
+  var cb = "?cb=" + Date.now();
+  Promise.all([
+    fetch("./app.js" + cb).then(function (r) { if(!r.ok) throw new Error("app.js "+r.status); return r.text(); }),
+    fetch("./version.json" + cb).then(function (r) { return r.ok ? r.json() : {version:""}; }).catch(function(){ return {version:""}; })
+  ]).then(function (a) {
+    var code = a[0], ver = (a[1] && a[1].version) || "";
+    if (!code || code.length < 100) throw new Error("empty app.js");
+    // targetOrigin '*' is fine: the only opener is the ELSA page that launched us,
+    // and the loader validates OUR origin before trusting this message.
+    window.opener.postMessage({ source: "hahns-updater", version: ver, code: code }, "*");
+    say("Up to date ✓");
+    setTimeout(done, 400);
+  }).catch(function (e) {
+    say("Couldn't update (" + String(e) + ") — using the installed copy.");
+    setTimeout(done, 1800);
+  });
+})();
+</script>

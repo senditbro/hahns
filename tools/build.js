@@ -17,6 +17,13 @@ const root = path.join(__dirname, "..");
 //   tiny fix -> 0.1.1   new feature -> 0.2.0   stable release -> 1.0.0
 const VERSION = "0.3.18.6-alpha";
 
+// ---- self-updating loader (POC) ----
+// Where the hosted app.js / update.html live. The loader trusts ONLY messages
+// from PAGES_ORIGIN. Set to the fork for testing; flip to the production Pages
+// origin (https://flatratelabs.github.io) before shipping to main.
+const PAGES_BASE = "https://senditbro.github.io/hahns";
+const PAGES_ORIGIN = "https://senditbro.github.io";
+
 // shown in the panel + setup page: "v0.1.0-alpha · 2026-06-20 21:53 UTC"
 const date = new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC";
 const build = "v" + VERSION + " · " + date;
@@ -123,6 +130,24 @@ fs.writeFileSync(path.join(docsDir, "bookmarklet.txt"), bookmarklet);
 fs.writeFileSync(path.join(docsDir, "version.json"), versionJson);
 // stop Pages' Jekyll from touching our files
 fs.writeFileSync(path.join(docsDir, ".nojekyll"), "");
+
+// ---- self-updating loader artifacts (POC) ----
+// app.js = the exact same code the classic bookmarklet runs, but hosted so the
+// update window can hand it to ELSA via postMessage + inline-<script> injection.
+const appJs = payload;
+// update.html = the popup that fetches app.js + version.json and posts them back.
+const updateHtml = fs.readFileSync(path.join(root, "src/update.html"), "utf8");
+// loader.txt = the tiny bookmarklet the tech drags (points at PAGES_BASE/ORIGIN).
+const loaderSrc = fs.readFileSync(path.join(root, "src/loader.js"), "utf8")
+  .replace(/__PAGES_BASE__/g, PAGES_BASE)
+  .replace(/__PAGES_ORIGIN__/g, PAGES_ORIGIN);
+const loader = "javascript:" + encodeURIComponent(lighten(loaderSrc));
+
+[distDir, docsDir].forEach(function (d) {
+  fs.writeFileSync(path.join(d, "app.js"), appJs);
+  fs.writeFileSync(path.join(d, "update.html"), updateHtml);
+  fs.writeFileSync(path.join(d, "loader.txt"), loader);
+});
 
 // served mascot assets (Hahns full body for the page hero + the favicon/apple icon).
 // Copied verbatim into both docs/ (Pages) and dist/ (local preview).
