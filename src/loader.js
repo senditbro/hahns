@@ -5,9 +5,10 @@
  *
  * How it works on ELSA (proven possible 2026-07-08; see CLAUDE.md / memory):
  *   1. Inject the last cached copy of the app instantly  -> works offline, no wait.
- *   2. At most once a day, open the GitHub Pages update window, which postMessages
- *      the newest app code back; we cache it for next time.
- *   3. First run on a machine (no cache): run whatever the update window returns.
+ *   2. At most once a day, open the GitHub Pages update window. If a newer version
+ *      exists it ASKS the tech (Update now / Not now) and only hands the code back
+ *      if they accept; we cache it and apply it right away.
+ *   3. First run on a machine (no cache): the window installs the app silently.
  *
  * The app code is delivered via popup + postMessage + inline-<script> injection
  * because ELSA's CSP blocks fetch()/external <script>/iframe to our domain but
@@ -49,9 +50,9 @@
       if (e.origin !== ORIGIN) return;                       // only trust our Pages origin
       var d = e.data;
       if (!d || d.source !== "hahns-updater") return;
-      if (d.upToDate) {                                      // already current: no app downloaded
+      if (d.upToDate || d.dismissed) {                       // current, or the tech chose "Not now"
         try { localStorage.setItem(LS_TS, String(Date.now())); } catch (_) { }
-        return;
+        return;                                              // don't check again until the next day
       }
       if (typeof d.code !== "string") return;
       try {
@@ -59,14 +60,13 @@
         localStorage.setItem(LS_VER, d.version || "");
         localStorage.setItem(LS_TS, String(Date.now()));
       } catch (_) { }
-      if (!code) inject(d.code);   // first run had nothing cached -> run the fresh copy now
-      // otherwise the cached app is already running; the new code is used on the next click
+      inject(d.code);   // install (first run) or apply an accepted update now; run() replaces any open panel
     }, false);
 
     // pass the version we already have so the window can skip the big download when current
     var w = window.open(
       BASE + "/update.html?v=" + encodeURIComponent(ver) + "&cb=" + Date.now(),
-      "hahns_upd", "popup=1,width=380,height=200");
+      "hahns_upd", "popup=1,width=400,height=280");
     if (!w && !code) {
       alert("Hahns: allow pop-ups for this site once so it can install, then click the bookmark again.");
     }
