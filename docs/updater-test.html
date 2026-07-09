@@ -1,45 +1,57 @@
 <!-- docs/updater-test.html
      THROWAWAY PROOF-OF-CONCEPT. Not part of the H.A.H.N.S app.
-     Tests whether a popup opened from an ELSA page can (a) keep window.opener
-     (i.e. ELSA's COOP header does not sever it) and (b) postMessage code back
-     to the opener, which the opener then runs as an inline <script>.
+     Tests on real ELSA whether a popup opened from the ELSA page keeps
+     window.opener (i.e. ELSA's COOP header does not sever it) and can
+     postMessage code back for inline-<script> injection.
      Safe to delete. Contains no VW/ELSA/manual content. -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hahns update-channel test</title>
 <style>
-  body{font:15px/1.5 system-ui,-apple-system,sans-serif;margin:0;padding:18px;background:#111;color:#eee}
+  body{font:15px/1.55 system-ui,-apple-system,sans-serif;margin:0;padding:18px;background:#111;color:#eee}
   h1{font-size:16px;margin:0 0 10px}
-  #out div{margin:6px 0}
+  #out div{margin:7px 0}
   .ok{color:#2fb84d;font-weight:800}
   .bad{color:#ff5a5a;font-weight:800}
+  .warn{color:#ffcf5a;font-weight:800}
   code{background:#222;padding:1px 5px;border-radius:4px;word-break:break-all}
   small{color:#999}
 </style>
 <h1>H.A.H.N.S — update-channel POC</h1>
 <div id="out">Checking&hellip;</div>
-<small>Throwaway test page. You can close this window.</small>
+<p><small>Throwaway test page. You can close this window/tab.</small></p>
 <script>
 (function(){
   var out = document.getElementById('out');
-  function line(html){ var d=document.createElement('div'); d.innerHTML=html; out.appendChild(d); }
   out.textContent = '';
+  function line(html){ var d=document.createElement('div'); d.innerHTML=html; out.appendChild(d); }
 
+  var viaBm = false;
+  try { viaBm = new URLSearchParams(location.search).get('via') === 'bm'; } catch(e){}
   var hasOpener = false;
   try { hasOpener = !!window.opener; } catch(e){ hasOpener = false; }
 
-  if (!hasOpener){
-    line('<span class="bad">Opener present: NO</span>');
-    line('If you reached this page by clicking the test bookmarklet on ELSA, that means ELSA’s <b>COOP header severed window.opener</b> — this approach will NOT work and we stop here.');
-    line('<small>(If you just opened this page directly in a tab, that’s expected — there is no opener.)</small>');
+  // Guard: only the bookmarklet-launched flow is a valid test.
+  if (!viaBm){
+    line('<span class="warn">This is not the test.</span> You opened this page directly, so there is no opener to check.');
+    line('The real test: be on an <b>ELSA manual page</b>, then click the <b>HAHNS POC</b> bookmarklet. It opens this page for you and this is where the result shows.');
+    line('<small>(Opener detected right now: '+(hasOpener?'yes':'no')+' — meaningless when opened directly.)</small>');
     return;
   }
 
-  line('<span class="ok">Opener present: YES</span> &mdash; COOP did not sever the link. Good sign.');
+  // Launched by the bookmarklet.
+  if (!hasOpener){
+    line('<span class="bad">Opener present: NO</span> — even though the bookmarklet launched me.');
+    line('If you clicked the bookmarklet <b>while an ELSA manual page was open</b>, this means ELSA’s <b>COOP header severed window.opener</b>. That kills this approach — we stop here.');
+    line('<small>If you clicked it from some other page (not ELSA), try again on an actual ELSA manual page first.</small>');
+    return;
+  }
+
+  line('<span class="ok">Opener present: YES</span> &mdash; the link back to the opener page survived. Good sign.');
 
   // The "code" we ship back to the opener. In the real feature this string would
   // be the full hahns.js. For the test it just drops an unmistakable green banner
-  // on the ELSA page, proving the opener received AND executed injected code.
+  // on the opener page, proving it received AND executed injected code.
   var payloadCode =
     "(function(){try{" +
     "var b=document.createElement('div');" +
@@ -54,17 +66,15 @@
   var sent = false;
   function send(){
     try {
-      // POC uses '*'; the real feature would lock this to ELSA's exact origin.
-      window.opener.postMessage({ hahnsUpdate: payloadCode }, '*');
+      window.opener.postMessage({ hahnsUpdate: payloadCode }, '*'); // POC: '*'; real feature locks to ELSA origin
       if(!sent){
-        line('<span class="ok">Sent payload to opener.</span> Switch to the ELSA tab &mdash; you should see a green banner across the top.');
+        line('<span class="ok">Sent payload to the opener.</span> Switch back to the ELSA tab &mdash; you should see a <b>green banner</b> across the top.');
         sent = true;
       }
     } catch(e){
       line('<span class="bad">postMessage threw:</span> <code>'+String(e)+'</code>');
     }
   }
-  // Fire a few times in case the opener's listener attaches a hair late.
   send(); setTimeout(send, 300); setTimeout(send, 1200);
 })();
 </script>
